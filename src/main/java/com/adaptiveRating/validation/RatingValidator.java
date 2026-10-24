@@ -3,14 +3,14 @@ package com.adaptiveRating.validation;
 
 import com.adaptiveRating.exception.rating.RatingValidationException;
 import com.adaptiveRating.model.Rating;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Objects;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class RatingValidator {
-
-    private RatingValidator() {
-    }
 
     public static void validateRatingList(List<Rating> ratings, int minRequired) {
         Objects.requireNonNull(ratings, "Ratings list must not be null");

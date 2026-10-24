@@ -1,11 +1,7 @@
 package com.adaptiveRating.exception;
 
-public class AppCoreException extends RuntimeException {
-    public AppCoreException(String message) {
-        super(message);
-    }
+import lombok.experimental.StandardException;
 
-    public AppCoreException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@StandardException
+public class AppCoreException extends RuntimeException {
 }

@@ -14,8 +14,8 @@ public record UserProfile(
         double mean,
         double median,
         double standardDeviation,
-        int minRating,
-        int maxRating
+        double minRating,
+        double maxRating
 ) {
     public UserProfile {
         Objects.requireNonNull(userId, "userId must not be null");

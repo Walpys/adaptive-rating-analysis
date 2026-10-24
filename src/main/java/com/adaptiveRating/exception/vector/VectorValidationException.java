@@ -1,9 +1,7 @@
 package com.adaptiveRating.exception.vector;
 
-import com.adaptiveRating.exception.AppCoreException;
+import lombok.experimental.StandardException;
 
+@StandardException
 public class VectorValidationException extends VectorBasicException {
-    public VectorValidationException(String message) {
-        super(message);
-    }
 }

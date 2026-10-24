@@ -1,8 +1,8 @@
 package com.adaptiveRating.exception.user;
 
 
+import lombok.experimental.StandardException;
+
+@StandardException
 public class UserValidationException extends UserBasicException {
-    public UserValidationException(String message) {
-        super(message);
-    }
 }

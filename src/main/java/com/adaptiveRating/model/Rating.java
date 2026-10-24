@@ -8,7 +8,7 @@ import java.util.Objects;
 public record Rating(
         String userId,
         String objectId,
-        int rating,
+        double rating,
         Instant timestamp
 ) {
     public Rating {
@@ -22,8 +22,8 @@ public record Rating(
         if (objectId.isBlank()) {
             throw new RatingValidationException("objectId must not be blank");
         }
-        if (rating < 1 || rating > 10) {
-            throw new RatingValidationException("Rating value must be between 1 and 10, got: " + rating);
+        if (rating < 1.0 || rating > 10.0) {
+            throw new RatingValidationException("Rating value must be between 1.0 and 10.0, got: " + rating);
         }
     }
 }
