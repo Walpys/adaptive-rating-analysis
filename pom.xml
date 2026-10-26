@@ -19,9 +19,8 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- Versions -->
-        <slf4j.version>2.0.12</slf4j.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <assertj.version>3.25.3</assertj.version>
         <lombok.version>1.18.32</lombok.version>
         <jacoco.plugin.version>0.8.11</jacoco.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
@@ -29,16 +28,17 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
