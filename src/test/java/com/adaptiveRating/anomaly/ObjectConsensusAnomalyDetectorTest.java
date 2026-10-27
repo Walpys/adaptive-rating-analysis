@@ -17,7 +17,7 @@ class ObjectConsensusAnomalyDetectorTest {
     private final ObjectConsensusAnomalyDetector detector = new ObjectConsensusAnomalyDetector();
 
     @Test
-    @DisplayName("порожній список оцінок об'єкта дає 0.0")
+    @DisplayName("empty object ratings list returns zero")
     void emptyObjectRatingsReturnsZero() {
         Rating current = rating("u1", "movie-1", 10.0);
 
@@ -27,7 +27,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("null-список оцінок об'єкта дає 0.0")
+    @DisplayName("null object ratings list returns zero")
     void nullObjectRatingsReturnsZero() {
         Rating current = rating("u1", "movie-1", 10.0);
 
@@ -37,7 +37,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("оцінка, що збігається з clusterObjectMean, дає 0.0")
+    @DisplayName("rating equal to cluster object mean returns zero")
     void ratingEqualToClusterMeanReturnsZero() {
         Rating current = rating("u1", "movie-1", 7.0);
         List<Rating> clusterRatings = List.of(
@@ -52,7 +52,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("відхилення від середнього консенсусу нормалізується як |r - mean| / 9")
+    @DisplayName("deviation from cluster mean is normalized by nine")
     void deviationFromClusterObjectMeanIsNormalizedByNine() {
         Rating current = rating("u1", "movie-1", 10.0);
         List<Rating> clusterRatings = List.of(
@@ -69,7 +69,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("максимальна різниця 9 балів на шкалі [1, 10] дає аномалію 1.0")
+    @DisplayName("maximum nine point gap yields anomaly score of one")
     void maxNinePointGapYieldsOne() {
         Rating current = rating("u1", "movie-1", 10.0);
         List<Rating> clusterRatings = List.of(
@@ -83,7 +83,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("симетричний максимум: оцінка 1.0 проти середнього 10.0 теж дає 1.0")
+    @DisplayName("symmetric maximum: rating of one against mean of ten yields one")
     void minAgainstMaxMeanYieldsOne() {
         Rating current = rating("u1", "movie-1", 1.0);
         List<Rating> clusterRatings = List.of(rating("u2", "movie-1", 10.0));
@@ -94,7 +94,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("аномалія завжди лежить у діапазоні [0.0, 1.0]")
+    @DisplayName("score is always clamped to unit interval")
     void scoreIsClampedToUnitInterval() {
         Rating current = rating("u1", "movie-1", 8.5);
         List<Rating> clusterRatings = List.of(
@@ -109,7 +109,7 @@ class ObjectConsensusAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("порожня immutable-колекція обробляється так само, як порожній список")
+    @DisplayName("empty immutable collection is handled same as empty list")
     void emptyImmutableCollectionReturnsZero() {
         double score = detector.calculateAnomaly(rating("u1", 5.0), Collections.emptyList());
 

@@ -1,5 +1,6 @@
 package com.adaptiveRating.clustering;
 
+import com.adaptiveRating.exception.cluster.ClusterValidationException;
 import com.adaptiveRating.model.ClusterModel;
 import com.adaptiveRating.model.UserVector;
 import org.junit.jupiter.api.DisplayName;
@@ -11,12 +12,13 @@ import java.util.List;
 import static com.adaptiveRating.TestFixtures.EPS;
 import static com.adaptiveRating.TestFixtures.unitAt;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 class KMeansTest {
 
     @Test
-    @DisplayName("очевидно розділені вектори збираються у два різні центри")
+    @DisplayName("well separated vectors form two distinct clusters")
     void wellSeparatedVectorsFormTwoClusters() {
         List<UserVector> vectors = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -33,7 +35,7 @@ class KMeansTest {
     }
 
     @Test
-    @DisplayName("однакові вектори дають центр, тотожний цьому вектору")
+    @DisplayName("identical vectors share the same center")
     void identicalVectorsShareTheSameCenter() {
         UserVector same = unitAt(4);
         List<UserVector> vectors = List.of(same, same, same, same);
@@ -47,7 +49,7 @@ class KMeansTest {
     }
 
     @Test
-    @DisplayName("K=1 завжди будує один центр — середнє всіх векторів")
+    @DisplayName("k equals one produces mean center of all vectors")
     void kEqualsOneProducesMeanCenter() {
         List<UserVector> vectors = List.of(unitAt(1), unitAt(10));
 
@@ -64,7 +66,7 @@ class KMeansTest {
     }
 
     @Test
-    @DisplayName("фіксований seed дає відтворювані центри")
+    @DisplayName("fixed seed produces reproducible centers")
     void fixedSeedIsReproducible() {
         List<UserVector> vectors = List.of(unitAt(1), unitAt(3), unitAt(8), unitAt(10));
         KMeans first = new KMeans(2, 40, 42L);
@@ -82,7 +84,7 @@ class KMeansTest {
     }
 
     @Test
-    @DisplayName("якщо векторів менше за K, actualK зменшується до кількості векторів")
+    @DisplayName("k is capped by vector count when vectors are fewer than k")
     void kIsCappedByVectorCount() {
         List<UserVector> vectors = List.of(unitAt(2), unitAt(9));
 
@@ -90,6 +92,31 @@ class KMeansTest {
 
         assertThat(model.getK()).isEqualTo(2);
         assertThat(model.getClusterCenters()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("null or empty vectors list throws exception")
+    void nullOrEmptyVectorsThrowsException() {
+        KMeans kMeans = new KMeans(3, 10, 42L);
+
+        assertThatThrownBy(() -> kMeans.cluster(null))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThatThrownBy(() -> kMeans.cluster(List.of()))
+                .isInstanceOf(ClusterValidationException.class)
+                .hasMessageContaining("must not be empty");
+    }
+
+    @Test
+    @DisplayName("findClosestCluster returns minus one for invalid inputs")
+    void findClosestClusterReturnsMinusOneForInvalidInputs() {
+        UserVector vector = unitAt(1);
+        ClusterModel validModel = new ClusterModel(1, List.of(vector), 0L);
+        ClusterModel emptyModel = new ClusterModel(0, List.of(), 0L);
+
+        assertThat(KMeans.findClosestCluster(null, validModel)).isEqualTo(-1);
+        assertThat(KMeans.findClosestCluster(vector, null)).isEqualTo(-1);
+        assertThat(KMeans.findClosestCluster(vector, emptyModel)).isEqualTo(-1);
     }
 
     private static boolean closeTo(UserVector actual, UserVector expected) {

@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.within;
 class TemporalAnomalyDetectorTest {
 
     @Test
-    @DisplayName("кількість оцінок у вікні не вище норми дає 0.0")
+    @DisplayName("rating count in window within normal limits returns zero")
     void withinNormalCountReturnsZero() {
         TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 5);
         Rating current = rating("u1", "obj-1", 5.0, T0);
@@ -30,7 +30,7 @@ class TemporalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("надлишок оцінок нормалізується як excess / (maxNormalCount * 2) і затискається до 1.0")
+    @DisplayName("excess ratings increase score up to one")
     void excessRatingsIncreaseScoreUpToOne() {
         TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
         Rating current = rating("u1", "obj-1", 5.0, T0);
@@ -42,7 +42,7 @@ class TemporalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("оцінки поза часовим вікном не враховуються")
+    @DisplayName("ratings outside time window are ignored")
     void ratingsOutsideWindowAreIgnored() {
         TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
         Rating current = rating("u1", "obj-1", 5.0, T0);

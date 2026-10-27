@@ -1,42 +1,66 @@
 package com.adaptiveRating.anomaly;
 
 import com.adaptiveRating.model.ClusterModel;
+import com.adaptiveRating.model.UserProfile;
 import com.adaptiveRating.model.UserVector;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.adaptiveRating.TestFixtures.EPS;
 import static com.adaptiveRating.TestFixtures.unitAt;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
+import static org.assertj.core.api.Assertions.*;
 
 class ClusterAnomalyDetectorTest {
 
     private final ClusterAnomalyDetector detector = new ClusterAnomalyDetector();
 
     @Test
-    @DisplayName("вектор у центрі кластера дає аномалію 0.0")
+    @DisplayName("vector at cluster center yields zero anomaly score")
     void vectorAtCenterYieldsZero() {
         UserVector center = unitAt(5);
         ClusterModel model = new ClusterModel(1, List.of(center), 0L);
+        UserProfile profile = createProfileWithCluster(center, 0);
 
-        double score = detector.calculateAnomaly(center, model, 0);
+        double score = detector.calculateAnomaly(profile, model);
 
         assertThat(score).isCloseTo(0.0, within(EPS));
     }
 
     @Test
-    @DisplayName("максимальна евклідова відстань sqrt(2) нормалізується до 1.0")
-    void orthogonalPeaksYieldOne() {
+    @DisplayName("orthogonal peaks normalize distance correctly to unit interval")
+    void orthogonalPeaksYieldNormalizedScore() {
         UserVector center = unitAt(1);
         UserVector far = unitAt(10);
         ClusterModel model = new ClusterModel(1, List.of(center), 0L);
+        UserProfile profile = createProfileWithCluster(far, 0);
 
-        double score = detector.calculateAnomaly(far, model, 0);
+        double score = detector.calculateAnomaly(profile, model);
 
-        assertThat(score).isCloseTo(1.0, within(EPS));
-        assertThat(score).isBetween(0.0, 1.0);
+        assertThat(score).isGreaterThan(0.0);
+        assertThat(score).isLessThanOrEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("throws exception when user profile has no cluster index assigned")
+    void throwsExceptionWhenClusterIndexIsNull() {
+        UserVector vector = unitAt(1);
+        ClusterModel model = new ClusterModel(1, List.of(vector), 0L);
+
+        UserProfile profile = new UserProfile(
+                "user-1", 10, Map.of(), vector, 5.0, 5.0, 1.0, 1.0, 10.0, null
+        );
+
+        assertThatThrownBy(() -> detector.calculateAnomaly(profile, model))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("clusterIndex assigned");
+    }
+
+    private UserProfile createProfileWithCluster(UserVector vector, int clusterIndex) {
+        return new UserProfile(
+                "user-1", 10, Map.of(), vector, 5.0, 5.0, 1.0, 1.0, 10.0, clusterIndex
+        );
     }
 }

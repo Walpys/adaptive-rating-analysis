@@ -18,7 +18,7 @@ class PercentileCalculatorTest {
     private final PercentileCalculator calculator = new PercentileCalculator();
 
     @Test
-    @DisplayName("оцінка нижча за всі попередні має процентиль 0")
+    @DisplayName("rating lower than all previous history has percentile zero")
     void ratingLowerThanAllHistoryHasPercentileZero() {
         List<Rating> past = history("u1", 8, 9, 10);
         Rating current = rating("u1", 1.0);
@@ -29,7 +29,7 @@ class PercentileCalculatorTest {
     }
 
     @Test
-    @DisplayName("оцінка вища за всі попередні має процентиль 100")
+    @DisplayName("rating higher than all previous history has percentile hundred")
     void ratingHigherThanAllHistoryHasPercentileHundred() {
         List<Rating> past = history("u1", 1, 2, 3);
         Rating current = rating("u1", 10.0);
@@ -40,33 +40,33 @@ class PercentileCalculatorTest {
     }
 
     @Test
-    @DisplayName("рівні оцінки враховуються як 0.5 у формулі процентиля")
+    @DisplayName("equal ratings contribute half weight in percentile formula")
     void equalRatingsContributeHalfWeight() {
         List<Rating> past = history("u1", 5, 5, 5, 5);
         Rating current = rating("u1", 5.0);
 
         double percentile = calculator.calculatePercentile(current, past);
 
-        double expected = (0 + 0.5 * 4) / 4.0 * 100.0;
+        double expected = (0.0 + 0.5 * 4.0) / 4.0 * 100.0;
         assertThat(percentile).isCloseTo(expected, within(EPS));
         assertThat(percentile).isCloseTo(50.0, within(EPS));
     }
 
     @Test
-    @DisplayName("змішана історія: частина нижче, частина рівна, частина вище")
+    @DisplayName("mixed history uses less than and equals counts correctly")
     void mixedHistoryUsesLessThanAndEqualsCounts() {
         List<Rating> past = history("u1", 1, 2, 5, 5, 9);
         Rating current = rating("u1", 5.0);
 
         double percentile = calculator.calculatePercentile(current, past);
 
-        double expected = (2 + 0.5 * 2) / 5.0 * 100.0;
+        double expected = (2.0 + 0.5 * 2.0) / 5.0 * 100.0;
         assertThat(percentile).isCloseTo(expected, within(EPS));
         assertThat(percentile).isCloseTo(60.0, within(EPS));
     }
 
     @Test
-    @DisplayName("поточна оцінка не повинна входити у власну історію: додавання її змінює процентиль")
+    @DisplayName("current rating must not be included in own history and changes percentile")
     void currentRatingMustNotBeIncludedInOwnHistory() {
         List<Rating> pastOnly = history("u1", 1, 1, 1);
         Rating current = rating("u1", 10.0);
@@ -78,7 +78,7 @@ class PercentileCalculatorTest {
         double withCurrent = calculator.calculatePercentile(current, pastPlusCurrent);
 
         assertThat(withoutCurrent).isCloseTo(100.0, within(EPS));
-        assertThat(withCurrent).isCloseTo((3 + 0.5 * 1) / 4.0 * 100.0, within(EPS));
+        assertThat(withCurrent).isCloseTo((3.0 + 0.5 * 1.0) / 4.0 * 100.0, within(EPS));
         assertThat(withCurrent).isLessThan(withoutCurrent);
     }
 }

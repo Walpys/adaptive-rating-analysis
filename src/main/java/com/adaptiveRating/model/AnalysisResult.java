@@ -13,6 +13,7 @@ public record AnalysisResult(
         Double personalAnomaly,
         Double clusterAnomaly,
         Double temporalAnomaly,
+        Double objectConsensusAnomaly,
         Double anomalyScore,
         AnalysisStatus status,
         ResultClassification classification

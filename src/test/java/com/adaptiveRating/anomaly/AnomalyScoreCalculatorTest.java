@@ -1,18 +1,18 @@
 package com.adaptiveRating.anomaly;
 
+import com.adaptiveRating.exception.anomaly.AnomalyCalculationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static com.adaptiveRating.TestFixtures.EPS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 class AnomalyScoreCalculatorTest {
 
     @Test
-    @DisplayName("об'єднує Personal, Cluster, Temporal і Object Consensus з вагами з конфігу")
+    @DisplayName("combines Personal, Cluster, Temporal, and Object Consensus signals using config weights")
     void combinesAllFourSignalsUsingConfigWeights() {
         double wPersonal = 0.4;
         double wCluster = 0.3;
@@ -20,127 +20,84 @@ class AnomalyScoreCalculatorTest {
         double wObject = 0.1;
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(wPersonal, wCluster, wTime, wObject);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(0.5),
-                Optional.of(1.0),
-                Optional.of(0.0),
-                Optional.of(0.9)
-        );
+        double score = calculator.calculateScore(0.5, 1.0, 0.0, 0.9);
 
         double expected = (0.4 * 0.5 + 0.3 * 1.0 + 0.2 * 0.0 + 0.1 * 0.9) / 1.0;
-        assertThat(score).isPresent();
-        assertThat(score.get()).isCloseTo(expected, within(EPS));
-        assertThat(score.get()).isCloseTo(0.59, within(EPS));
+        assertThat(score).isCloseTo(expected, within(EPS));
+        assertThat(score).isCloseTo(0.59, within(EPS));
     }
 
     @Test
-    @DisplayName("відсутній cluster-сигнал виключає його вагу і нормалізує решту")
+    @DisplayName("null signal excludes its weight and renormalizes remaining active weights")
     void missingClusterSignalRenormalizesActiveWeights() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(0.4, 0.3, 0.2, 0.1);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(1.0),
-                Optional.empty(),
-                Optional.of(0.0),
-                Optional.of(0.5)
-        );
+        double score = calculator.calculateScore(1.0, null, 0.0, 0.5);
 
         double expected = (0.4 * 1.0 + 0.2 * 0.0 + 0.1 * 0.5) / (0.4 + 0.2 + 0.1);
-        assertThat(score).isPresent();
-        assertThat(score.get()).isCloseTo(expected, within(EPS));
+        assertThat(score).isCloseTo(expected, within(EPS));
     }
 
     @Test
-    @DisplayName("усі нульові сигнали дають AnomalyScore 0.0")
+    @DisplayName("all zero signals yield anomaly score of zero")
     void allZeroSignalsYieldZeroScore() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(0.4, 0.3, 0.2, 0.1);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(0.0),
-                Optional.of(0.0),
-                Optional.of(0.0),
-                Optional.of(0.0)
-        );
+        double score = calculator.calculateScore(0.0, 0.0, 0.0, 0.0);
 
-        assertThat(score).isPresent();
-        assertThat(score.get()).isCloseTo(0.0, within(EPS));
+        assertThat(score).isCloseTo(0.0, within(EPS));
     }
 
     @Test
-    @DisplayName("усі одиничні сигнали дають AnomalyScore 1.0")
+    @DisplayName("all unit signals yield anomaly score of one")
     void allOneSignalsYieldOneScore() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(0.4, 0.3, 0.2, 0.1);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(1.0),
-                Optional.of(1.0),
-                Optional.of(1.0),
-                Optional.of(1.0)
-        );
+        double score = calculator.calculateScore(1.0, 1.0, 1.0, 1.0);
 
-        assertThat(score).isPresent();
-        assertThat(score.get()).isCloseTo(1.0, within(EPS));
+        assertThat(score).isCloseTo(1.0, within(EPS));
     }
 
     @Test
-    @DisplayName("результат завжди затискається в [0.0, 1.0]")
+    @DisplayName("result is always clamped to unit interval [0.0, 1.0]")
     void scoreIsClampedToUnitInterval() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(1.0, 0.0, 0.0, 0.0);
 
-        Optional<Double> high = calculator.calculateScore(
-                Optional.of(2.5), Optional.empty(), Optional.empty(), Optional.empty()
-        );
-        Optional<Double> low = calculator.calculateScore(
-                Optional.of(-1.0), Optional.empty(), Optional.empty(), Optional.empty()
-        );
+        double high = calculator.calculateScore(2.5, null, null, null);
+        double low = calculator.calculateScore(-1.0, null, null, null);
 
-        assertThat(high).contains(1.0);
-        assertThat(low).contains(0.0);
+        assertThat(high).isEqualTo(1.0);
+        assertThat(low).isEqualTo(0.0);
     }
 
     @Test
-    @DisplayName("якщо немає жодного активного сигналу, результат порожній")
-    void noActiveSignalsReturnsEmpty() {
+    @DisplayName("throws exception when no active anomaly signals are provided")
+    void noActiveSignalsThrowsException() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(0.4, 0.3, 0.2, 0.1);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        );
-
-        assertThat(score).isEmpty();
+        assertThatThrownBy(() -> calculator.calculateScore(null, null, null, null))
+                .isInstanceOf(AnomalyCalculationException.class)
+                .hasMessageContaining("active weight sum is zero");
     }
 
     @Test
-    @DisplayName("нульова вага ігнорує навіть присутній сигнал")
+    @DisplayName("zero weight ignores even present signal")
     void zeroWeightIgnoresPresentSignal() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(1.0, 0.0, 0.0, 0.0);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(0.2),
-                Optional.of(1.0),
-                Optional.of(1.0),
-                Optional.of(1.0)
-        );
+        double score = calculator.calculateScore(0.2, 1.0, 1.0, 1.0);
 
-        assertThat(score).contains(0.2);
+        assertThat(score).isCloseTo(0.2, within(EPS));
     }
 
     @Test
-    @DisplayName("ваги, що не сумуються до 1, все одно нормалізуються через activeWeightSum")
+    @DisplayName("weights that do not sum to one are still normalized via activeWeightSum")
     void weightsThatDoNotSumToOneAreRenormalized() {
         AnomalyScoreCalculator calculator = new AnomalyScoreCalculator(0.5, 0.3, 0.2, 0.2);
 
-        Optional<Double> score = calculator.calculateScore(
-                Optional.of(1.0),
-                Optional.of(0.0),
-                Optional.of(0.0),
-                Optional.of(0.0)
-        );
+        double score = calculator.calculateScore(1.0, 0.0, 0.0, 0.0);
 
         double expected = 0.5 / (0.5 + 0.3 + 0.2 + 0.2);
-        assertThat(score.get()).isCloseTo(expected, within(EPS));
+        assertThat(score).isCloseTo(expected, within(EPS));
     }
 }

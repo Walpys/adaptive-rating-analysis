@@ -20,7 +20,7 @@ class PersonalAnomalyDetectorTest {
     private final UserProfileBuilder profileBuilder = new UserProfileBuilder();
 
     @Test
-    @DisplayName("частотна оцінка, яка вже домінує в історії, дає низьку персональну аномалію")
+    @DisplayName("frequent rating dominating history yields low personal anomaly")
     void frequentRatingYieldsLowAnomaly() {
         List<Rating> ratings = history("u1", 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
         UserProfile profile = profileBuilder.build("u1", ratings);
@@ -31,7 +31,7 @@ class PersonalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("рідкісна оцінка дає аномалію 1 - frequency")
+    @DisplayName("rare rating yields high anomaly score")
     void rareRatingYieldsHighAnomaly() {
         List<Rating> ratings = history("u1", 5, 5, 5, 5, 5, 5, 5, 5, 5, 10);
         UserProfile profile = profileBuilder.build("u1", ratings);
@@ -43,7 +43,7 @@ class PersonalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("оцінка, якої взагалі не було в історії, дає 1.0")
+    @DisplayName("unseen rating yields anomaly score of one")
     void unseenRatingYieldsOne() {
         List<Rating> ratings = history("u1", 3, 3, 3, 3);
         UserProfile profile = profileBuilder.build("u1", ratings);

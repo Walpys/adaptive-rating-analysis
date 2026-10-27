@@ -1,5 +1,6 @@
 package com.adaptiveRating.profile;
 
+import com.adaptiveRating.clustering.KMeans;
 import com.adaptiveRating.model.Rating;
 import com.adaptiveRating.model.UserProfile;
 import com.adaptiveRating.model.UserVector;
@@ -21,7 +22,6 @@ public class UserProfileBuilder {
         double max = Collections.max(values);
 
         UserVector userVector = buildUserVector(ratingCounts, totalRatings);
-
         return new UserProfile(
                 userId,
                 totalRatings,
@@ -31,7 +31,8 @@ public class UserProfileBuilder {
                 median,
                 standardDeviation,
                 min,
-                max
+                max,
+                null
         );
     }
 

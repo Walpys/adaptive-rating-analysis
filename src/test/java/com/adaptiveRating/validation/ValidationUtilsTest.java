@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ValidationUtilsTest {
 
     @Test
-    @DisplayName("requireNonNull повертає той самий об'єкт")
+    @DisplayName("requireNonNull returns the exact same object")
     void requireNonNullReturnsValue() {
         String value = "ok";
 
@@ -20,7 +20,7 @@ class ValidationUtilsTest {
     }
 
     @Test
-    @DisplayName("requireNonNull кидає AppIllegalArgumentException")
+    @DisplayName("requireNonNull throws AppIllegalArgumentException when null")
     void requireNonNullThrows() {
         assertThatThrownBy(() -> ValidationUtils.requireNonNull(null, "rating must not be null"))
                 .isInstanceOf(AppIllegalArgumentException.class)
@@ -28,7 +28,7 @@ class ValidationUtilsTest {
     }
 
     @Test
-    @DisplayName("requirePositive відхиляє 0 і від'ємні")
+    @DisplayName("requirePositive rejects zero and negative values")
     void requirePositiveRejectsNonPositive() {
         assertThatThrownBy(() -> ValidationUtils.requirePositive(0, "K must be positive"))
                 .isInstanceOf(AppIllegalArgumentException.class);
@@ -37,7 +37,7 @@ class ValidationUtilsTest {
     }
 
     @Test
-    @DisplayName("requireNonEmpty відхиляє null і порожню колекцію")
+    @DisplayName("requireNonEmpty rejects null and empty collections")
     void requireNonEmptyRejectsNullAndEmpty() {
         assertThatThrownBy(() -> ValidationUtils.requireNonEmpty(null, "userVectors must not be null or empty"))
                 .isInstanceOf(AppIllegalArgumentException.class);

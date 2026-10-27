@@ -1,7 +1,9 @@
 package com.adaptiveRating.clustering;
 
+import com.adaptiveRating.exception.cluster.ClusterValidationException;
 import com.adaptiveRating.model.ClusterModel;
 import com.adaptiveRating.model.UserVector;
+import com.adaptiveRating.validation.ValidationUtils;
 
 import java.util.*;
 
@@ -18,6 +20,11 @@ public class KMeans {
     }
 
     public ClusterModel cluster(List<UserVector> vectors) {
+        ValidationUtils.requireNonNull(vectors, "vectors must not be null");
+        if (vectors.isEmpty()) {
+            throw new ClusterValidationException("vectors must not be empty");
+        }
+
         int actualK = Math.min(k, vectors.size());
         Random random = new Random(seed);
 
@@ -61,6 +68,42 @@ public class KMeans {
         return new ClusterModel(actualK, centers, System.currentTimeMillis());
     }
 
+    public static int findClosestCluster(UserVector userVector, ClusterModel clusterModel) {
+        if (userVector == null || clusterModel == null || clusterModel.getClusterCenters().isEmpty()) {
+            return -1;
+        }
+        return findNearestCenterIndexStatic(userVector, clusterModel.getClusterCenters());
+    }
+
+    private int findNearestCenterIndex(UserVector vector, List<UserVector> centers) {
+        return findNearestCenterIndexStatic(vector, centers);
+    }
+
+    private static int findNearestCenterIndexStatic(UserVector vector, List<UserVector> centers) {
+        int nearestIndex = 0;
+        double minDistance = Double.MAX_VALUE;
+
+        for (int i = 0; i < centers.size(); i++) {
+            double distance = calculateEuclideanDistanceStatic(vector, centers.get(i));
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestIndex = i;
+            }
+        }
+        return nearestIndex;
+    }
+
+    private static double calculateEuclideanDistanceStatic(UserVector v1, UserVector v2) {
+        double[] c1 = v1.components();
+        double[] c2 = v2.components();
+        double sum = 0.0;
+        for (int i = 0; i < 10; i++) {
+            double diff = c1[i] - c2[i];
+            sum += diff * diff;
+        }
+        return Math.sqrt(sum);
+    }
+
     private List<UserVector> initializeCenters(List<UserVector> vectors, int actualK, Random random) {
         List<UserVector> centers = new ArrayList<>();
         List<UserVector> shuffled = new ArrayList<>(vectors);
@@ -70,31 +113,6 @@ public class KMeans {
             centers.add(shuffled.get(i));
         }
         return centers;
-    }
-
-    private int findNearestCenterIndex(UserVector vector, List<UserVector> centers) {
-        int nearestIndex = 0;
-        double minDistance = Double.MAX_VALUE;
-
-        for (int i = 0; i < centers.size(); i++) {
-            double distance = calculateEuclideanDistance(vector, centers.get(i));
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestIndex = i;
-            }
-        }
-        return nearestIndex;
-    }
-
-    private double calculateEuclideanDistance(UserVector v1, UserVector v2) {
-        double[] c1 = v1.components();
-        double[] c2 = v2.components();
-        double sum = 0.0;
-        for (int i = 0; i < 10; i++) {
-            double diff = c1[i] - c2[i];
-            sum += diff * diff;
-        }
-        return Math.sqrt(sum);
     }
 
     private UserVector calculateMeanVector(List<UserVector> clusterVectors) {

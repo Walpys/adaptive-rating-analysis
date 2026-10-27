@@ -1,5 +1,7 @@
 package com.adaptiveRating.anomaly;
 
+import com.adaptiveRating.exception.anomaly.AnomalyCalculationException;
+
 import java.util.Optional;
 
 public class AnomalyScoreCalculator {
@@ -16,37 +18,37 @@ public class AnomalyScoreCalculator {
         this.wObject = wObject;
     }
 
-    public Optional<Double> calculateScore(
-            Optional<Double> personalAnomaly,
-            Optional<Double> clusterAnomaly,
-            Optional<Double> temporalAnomaly,
-            Optional<Double> objectConsensusAnomaly
+    public double calculateScore(
+            Double personalAnomaly,
+            Double clusterAnomaly,
+            Double temporalAnomaly,
+            Double objectConsensusAnomaly
     ) {
         double activeWeightSum = 0.0;
         double weightedSum = 0.0;
 
-        if (personalAnomaly.isPresent() && wPersonal > 0) {
-            weightedSum += wPersonal * personalAnomaly.get();
+        if (personalAnomaly != null && wPersonal > 0) {
+            weightedSum += wPersonal * personalAnomaly;
             activeWeightSum += wPersonal;
         }
-        if (clusterAnomaly.isPresent() && wCluster > 0) {
-            weightedSum += wCluster * clusterAnomaly.get();
+        if (clusterAnomaly != null && wCluster > 0) {
+            weightedSum += wCluster * clusterAnomaly;
             activeWeightSum += wCluster;
         }
-        if (temporalAnomaly.isPresent() && wTime > 0) {
-            weightedSum += wTime * temporalAnomaly.get();
+        if (temporalAnomaly != null && wTime > 0) {
+            weightedSum += wTime * temporalAnomaly;
             activeWeightSum += wTime;
         }
-        if (objectConsensusAnomaly.isPresent() && wObject > 0) {
-            weightedSum += wObject * objectConsensusAnomaly.get();
+        if (objectConsensusAnomaly != null && wObject > 0) {
+            weightedSum += wObject * objectConsensusAnomaly;
             activeWeightSum += wObject;
         }
 
         if (activeWeightSum == 0.0) {
-            return Optional.empty();
+            throw new AnomalyCalculationException("Cannot calculate anomaly score: active weight sum is zero or all anomaly inputs are null.");
         }
 
         double finalScore = weightedSum / activeWeightSum;
-        return Optional.of(Math.max(0.0, Math.min(1.0, finalScore)));
+        return Math.max(0.0, Math.min(1.0, finalScore));
     }
 }

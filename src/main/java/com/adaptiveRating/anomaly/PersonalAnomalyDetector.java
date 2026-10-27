@@ -7,9 +7,9 @@ public class PersonalAnomalyDetector {
 
     public double calculateAnomaly(Rating currentRating, UserProfile userProfile) {
         double ratingValue = currentRating.rating();
-        int totalRatings = userProfile.totalRatings();
+        int totalRatings = userProfile.getTotalRatings();
         int ratingBucket = (int) Math.clamp(Math.round(ratingValue), 1, 10);
-        int countOfValue = userProfile.ratingCounts().getOrDefault(ratingBucket, 0);
+        int countOfValue = userProfile.getRatingCounts().getOrDefault(ratingBucket, 0);
 
         double frequency = (double) countOfValue / totalRatings;
         double anomalyScore = 1.0 - frequency;

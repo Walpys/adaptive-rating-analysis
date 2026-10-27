@@ -1,14 +1,19 @@
 package com.adaptiveRating.anomaly;
 
 import com.adaptiveRating.model.ClusterModel;
+import com.adaptiveRating.model.UserProfile;
 import com.adaptiveRating.model.UserVector;
 
 public class ClusterAnomalyDetector {
     private static final double MAX_EUCLIDEAN_DISTANCE = Math.sqrt(2.0);
 
-    public double calculateAnomaly(UserVector userVector, ClusterModel clusterModel, int clusterIndex) {
-        UserVector center = clusterModel.getClusterCenters().get(clusterIndex);
-        double distance = calculateEuclideanDistance(userVector, center);
+    public double calculateAnomaly(UserProfile profile, ClusterModel clusterModel) {
+        if (profile.getClusterIndex() == null) {
+            throw new IllegalStateException("UserProfile must have a clusterIndex assigned before anomaly detection!");
+        }
+
+        UserVector center = clusterModel.getClusterCenters().get(profile.getClusterIndex());
+        double distance = calculateEuclideanDistance(profile.getUserVector(), center);
         double normalizedScore = distance / MAX_EUCLIDEAN_DISTANCE;
 
         return Math.max(0.0, Math.min(1.0, normalizedScore));

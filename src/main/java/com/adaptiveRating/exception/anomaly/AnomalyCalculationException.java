@@ -1,0 +1,7 @@
+package com.adaptiveRating.exception.anomaly;
+
+public class AnomalyCalculationException extends AnomalyBaseException {
+    public AnomalyCalculationException(String message) {
+        super(message);
+    }
+}
