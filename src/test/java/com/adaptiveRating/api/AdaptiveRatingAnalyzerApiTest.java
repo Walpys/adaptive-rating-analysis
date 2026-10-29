@@ -43,7 +43,8 @@ class AdaptiveRatingAnalyzerApiTest {
                         cfg.getWeightTime(),
                         cfg.getWeightObject()
                 ),
-                new PercentileCalculator()
+                new PercentileCalculator(),
+                new DispersionAnomalyDetector()
         );
     }
 
@@ -140,6 +141,47 @@ class AdaptiveRatingAnalyzerApiTest {
             assertThat(result.status()).isEqualTo(AnalysisStatus.COMPLETE);
             assertThat(result.personalPercentile()).isCloseTo(50.0, within(EPS));
             assertThat(result.classification()).isEqualTo(ResultClassification.NORMAL);
+        }
+
+        @Test
+        @DisplayName("valid user profile produces complete profile analysis result")
+        void validProfileProducesCompleteResult() {
+            AnalyzerConfig cfg = config(3);
+            List<Rating> past = history("u1", 7, 8, 9, 8, 7);
+            InMemoryRatingDataSource dataSource = new InMemoryRatingDataSource(past);
+            AdaptiveRatingAnalyzerApi analyzer = createAnalyzer(cfg, dataSource);
+
+            UserProfile profile = profileBuilder.build("u1", past);
+            profile.setClusterIndex(0);
+            dataSource.saveProfile(profile);
+
+            ClusterModel clusterModel = new ClusterModel(1, List.of(profile.getUserVector()), 1L);
+
+            ProfileAnalysisResult result = analyzer.analyzeProfile("u1", clusterModel);
+
+            assertThat(result).isNotNull();
+            assertThat(result.userId()).isEqualTo("u1");
+            assertThat(result.totalRatings()).isEqualTo(5);
+            assertThat(result.status()).isEqualTo(AnalysisStatus.COMPLETE);
+            assertThat(result.classification()).isEqualTo(ResultClassification.NORMAL);
+            assertThat(result.clusterId()).contains("0");
+            assertThat(result.clusterAnomaly()).isCloseTo(0.0, within(1e-6));
+            assertThat(result.dispersionAnomaly()).isZero();
+            assertThat(result.overallAnomalyScore()).isCloseTo(0.0, within(0.15));
+        }
+
+        @Test
+        @DisplayName("missing user profile in datasource throws exception during profile analysis")
+        void missingProfileThrowsException() {
+            AnalyzerConfig cfg = config(3);
+            InMemoryRatingDataSource dataSource = new InMemoryRatingDataSource(List.of());
+            AdaptiveRatingAnalyzerApi analyzer = createAnalyzer(cfg, dataSource);
+
+            ClusterModel clusterModel = new ClusterModel(1, List.of(profileBuilder.build("u1", history("u1", 5, 5, 5)).getUserVector()), 1L);
+
+            assertThatThrownBy(() -> analyzer.analyzeProfile("non-existent-user", clusterModel))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("UserProfile must exist in data source");
         }
     }
 }

@@ -31,8 +31,7 @@ public class AnalyzerConfig {
                 0.2,
                 0.75,
                 Duration.ofHours(1),
-                5,
-                0.2
-        );
+                10,
+                0.2);
     }
 }

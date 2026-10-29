@@ -59,7 +59,6 @@ public class UserProfileApi {
         return profile;
     }
 
-
     public UserProfile buildProfile(String userId, List<Rating> ratings) {
         RatingValidator.validateRatingList(ratings, config.getMinRatings());
         return profileBuilder.build(userId, ratings);

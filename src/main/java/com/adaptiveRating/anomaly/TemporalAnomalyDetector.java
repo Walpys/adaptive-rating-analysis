@@ -17,12 +17,12 @@ public class TemporalAnomalyDetector {
     }
 
     public double calculateAnomaly(Rating currentRating, List<Rating> history) {
-        Instant currentTime = currentRating.timestamp();
+        Instant currentTime = currentRating.getEffectiveTime();
         Instant windowStart = currentTime.minus(timeWindow);
 
         int countInWindow = 0;
         for (Rating r : history) {
-            Instant rTime = r.timestamp();
+            Instant rTime = r.getEffectiveTime(); // Враховуємо оновлення або створення
             if (!rTime.isBefore(windowStart) && !rTime.isAfter(currentTime)) {
                 countInWindow++;
             }
@@ -36,5 +36,17 @@ public class TemporalAnomalyDetector {
         double score = excess / (double) (maxNormalCount * 2);
 
         return Math.max(0.0, Math.min(1.0, score));
+    }
+
+    public Double calculateProfileAnomaly(List<Rating> history) {
+        if (history == null || history.isEmpty()) {
+            return 0.0;
+        }
+
+        Rating latestRating = history.stream()
+                .max((r1, r2) -> r1.getEffectiveTime().compareTo(r2.getEffectiveTime()))
+                .orElse(history.get(history.size() - 1));
+
+        return calculateAnomaly(latestRating, history);
     }
 }

@@ -25,6 +25,7 @@ public class AdaptiveRatingAnalyzerApi {
     private final TemporalAnomalyDetector temporalAnomalyDetector;
     private final AnomalyScoreCalculator anomalyScoreCalculator;
     private final PercentileCalculator percentileCalculator;
+    private final DispersionAnomalyDetector dispersionAnomalyDetector;
 
 
     public AnalysisResult analyze(String userId, Rating rating, ClusterModel clusterModel) {
@@ -79,6 +80,51 @@ public class AdaptiveRatingAnalyzerApi {
         );
     }
 
+    public ProfileAnalysisResult analyzeProfile(String userId, ClusterModel clusterModel) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        Objects.requireNonNull(clusterModel, "ClusterModel must not be null");
+
+        UserProfile profile = dataSource.getUserProfile(userId);
+        Objects.requireNonNull(profile, "UserProfile must exist in data source!");
+
+        Double clusterAnomaly = null;
+        if (profile.getClusterIndex() != null) {
+            clusterAnomaly = clusterDetector.calculateAnomaly(profile, clusterModel);
+        }
+
+        Double dispersionAnomaly = dispersionAnomalyDetector.calculateAnomaly(profile);
+
+        Double temporalAnomaly = temporalAnomalyDetector.calculateProfileAnomaly(dataSource.getUserRatings(userId));
+
+
+        double overallScore = anomalyScoreCalculator.calculateScore(
+                dispersionAnomaly,
+                clusterAnomaly,
+                temporalAnomaly,
+                null
+        );
+
+        int userClusterIndex = KMeans.findClosestCluster(profile.getUserVector(), clusterModel);
+        String clusterId = String.valueOf(userClusterIndex);
+
+        ResultClassification classification = overallScore >= config.getAnomalyThreshold()
+                ? ResultClassification.ANOMALOUS
+                : ResultClassification.NORMAL;
+
+        return new ProfileAnalysisResult(
+                profile.getUserId(),
+                profile.getTotalRatings(),
+                profile.getMean(),
+                profile.getStandardDeviation(),
+                clusterId,
+                clusterAnomaly,
+                dispersionAnomaly,
+                overallScore,
+                AnalysisStatus.COMPLETE,
+                classification
+        );
+    }
+
     private AnalysisResolution determineResolution(double anomalyScore) {
         boolean isAnomalous = anomalyScore >= config.getAnomalyThreshold();
         AnalysisStatus status = AnalysisStatus.COMPLETE;
@@ -94,4 +140,6 @@ public class AdaptiveRatingAnalyzerApi {
             ResultClassification classification
     ) {
     }
+
+
 }

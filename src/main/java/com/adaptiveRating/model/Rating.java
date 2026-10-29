@@ -4,12 +4,14 @@ import com.adaptiveRating.exception.rating.RatingValidationException;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 public record Rating(
         String userId,
         String objectId,
         double rating,
-        Instant timestamp
+        Instant timestamp,
+        Instant updatedAt
 ) {
     public Rating {
         Objects.requireNonNull(userId, "userId must not be null");
@@ -25,5 +27,17 @@ public record Rating(
         if (rating < 1.0 || rating > 10.0) {
             throw new RatingValidationException("Rating value must be between 1.0 and 10.0, got: " + rating);
         }
+    }
+
+    public Rating(String userId, String objectId, double rating, Instant timestamp) {
+        this(userId, objectId, rating, timestamp, null);
+    }
+
+    public Optional<Instant> getUpdatedAt() {
+        return Optional.ofNullable(updatedAt);
+    }
+
+    public Instant getEffectiveTime() {
+        return updatedAt != null ? updatedAt : timestamp;
     }
 }
