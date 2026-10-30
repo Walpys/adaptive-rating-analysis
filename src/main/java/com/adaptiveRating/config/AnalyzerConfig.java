@@ -26,10 +26,10 @@ public class AnalyzerConfig {
                 3,
                 100,
                 42L,
-                0.5,
-                0.3,
                 0.2,
-                0.75,
+                0.3,
+                0.3,
+                0.60,
                 Duration.ofHours(1),
                 10,
                 0.2);

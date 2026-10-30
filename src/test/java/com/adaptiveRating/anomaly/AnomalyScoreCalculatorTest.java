@@ -22,9 +22,11 @@ class AnomalyScoreCalculatorTest {
 
         double score = calculator.calculateScore(0.5, 1.0, 0.0, 0.9);
 
-        double expected = (0.4 * 0.5 + 0.3 * 1.0 + 0.2 * 0.0 + 0.1 * 0.9) / 1.0;
+        double weighted = (0.4 * 0.5 + 0.3 * 1.0 + 0.2 * 0.0 + 0.1 * 0.9) / 1.0;
+        double maxSignal = 1.0;
+        double expected = 0.5 * weighted + 0.5 * maxSignal;
+
         assertThat(score).isCloseTo(expected, within(EPS));
-        assertThat(score).isCloseTo(0.59, within(EPS));
     }
 
     @Test
@@ -34,7 +36,10 @@ class AnomalyScoreCalculatorTest {
 
         double score = calculator.calculateScore(1.0, null, 0.0, 0.5);
 
-        double expected = (0.4 * 1.0 + 0.2 * 0.0 + 0.1 * 0.5) / (0.4 + 0.2 + 0.1);
+        double weighted = (0.4 * 1.0 + 0.2 * 0.0 + 0.1 * 0.5) / (0.4 + 0.2 + 0.1);
+        double maxSignal = 1.0;
+        double expected = 0.5 * weighted + 0.5 * maxSignal;
+
         assertThat(score).isCloseTo(expected, within(EPS));
     }
 
@@ -87,7 +92,11 @@ class AnomalyScoreCalculatorTest {
 
         double score = calculator.calculateScore(0.2, 1.0, 1.0, 1.0);
 
-        assertThat(score).isCloseTo(0.2, within(EPS));
+        double weighted = 0.2;
+        double maxSignal = 0.2;
+        double expected = 0.5 * weighted + 0.5 * maxSignal;
+
+        assertThat(score).isCloseTo(expected, within(EPS));
     }
 
     @Test
@@ -97,7 +106,10 @@ class AnomalyScoreCalculatorTest {
 
         double score = calculator.calculateScore(1.0, 0.0, 0.0, 0.0);
 
-        double expected = 0.5 / (0.5 + 0.3 + 0.2 + 0.2);
+        double weighted = 0.5 / (0.5 + 0.3 + 0.2 + 0.2);
+        double maxSignal = 1.0;
+        double expected = 0.5 * weighted + 0.5 * maxSignal;
+
         assertThat(score).isCloseTo(expected, within(EPS));
     }
 }

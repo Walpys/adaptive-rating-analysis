@@ -38,7 +38,7 @@ class PersonalAnomalyDetectorTest {
 
         double score = detector.calculateAnomaly(rating("u1", 10.0), profile);
 
-        assertThat(score).isCloseTo(0.9, within(EPS));
+        assertThat(score).isCloseTo(1.0, within(EPS));
         assertThat(score).isBetween(0.0, 1.0);
     }
 

@@ -14,6 +14,7 @@ public record ProfileAnalysisResult(
         String clusterId,
         Double clusterAnomaly,
         Double dispersionAnomaly,
+        Double temporalAnomaly,
         Double overallAnomalyScore,
         AnalysisStatus status,
         ResultClassification classification

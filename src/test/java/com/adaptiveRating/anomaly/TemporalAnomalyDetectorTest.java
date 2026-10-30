@@ -30,7 +30,7 @@ class TemporalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("excess ratings increase score up to one")
+    @DisplayName("excess ratings increase score according to tanh curve")
     void excessRatingsIncreaseScoreUpToOne() {
         TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
         Rating current = rating("u1", "obj-1", 5.0, T0);
@@ -38,7 +38,8 @@ class TemporalAnomalyDetectorTest {
 
         double score = detector.calculateAnomaly(current, history);
 
-        assertThat(score).isCloseTo(1.0, within(EPS));
+        double expectedScore = Math.tanh(0.1 * 4);
+        assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 
     @Test
@@ -74,7 +75,8 @@ class TemporalAnomalyDetectorTest {
 
         double score = detector.calculateAnomaly(current, history);
 
-        assertThat(score).isCloseTo(1.0, within(EPS));
+        double expectedScore = Math.tanh(0.1 * 4);
+        assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 
     @Test
@@ -97,7 +99,8 @@ class TemporalAnomalyDetectorTest {
         Double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isNotNull();
-        assertThat(score).isCloseTo(1.0, within(EPS));
+        double expectedScore = Math.tanh(0.1 * 4);
+        assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 
     private static List<Rating> ratingsInWindow(String userId, Instant current, int count) {

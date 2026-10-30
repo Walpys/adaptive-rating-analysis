@@ -92,7 +92,7 @@ public class AdaptiveRatingAnalyzerApi {
             clusterAnomaly = clusterDetector.calculateAnomaly(profile, clusterModel);
         }
 
-        Double dispersionAnomaly = dispersionAnomalyDetector.calculateAnomaly(profile);
+        Double dispersionAnomaly = dispersionAnomalyDetector.calculateProfileAnomaly(dataSource.getUserRatings(userId));
 
         Double temporalAnomaly = temporalAnomalyDetector.calculateProfileAnomaly(dataSource.getUserRatings(userId));
 
@@ -119,6 +119,7 @@ public class AdaptiveRatingAnalyzerApi {
                 clusterId,
                 clusterAnomaly,
                 dispersionAnomaly,
+                temporalAnomaly,
                 overallScore,
                 AnalysisStatus.COMPLETE,
                 classification

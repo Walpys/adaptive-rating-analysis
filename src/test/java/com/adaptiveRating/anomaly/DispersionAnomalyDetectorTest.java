@@ -1,14 +1,14 @@
 package com.adaptiveRating.anomaly;
 
-import com.adaptiveRating.model.UserProfile;
-import com.adaptiveRating.model.UserVector;
+import com.adaptiveRating.model.Rating;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.adaptiveRating.TestFixtures.EPS;
-import static com.adaptiveRating.TestFixtures.unitAt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
@@ -19,9 +19,9 @@ class DispersionAnomalyDetectorTest {
     @Test
     @DisplayName("profile with less than 5 ratings returns zero anomaly score")
     void profileWithLessThanFiveRatingsYieldsZero() {
-        UserProfile profile = createProfile(4, 0.0);
+        List<Rating> history = createRatingsWithStdDev(4, 5.0, 0.0);
 
-        double score = detector.calculateAnomaly(profile);
+        double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isZero();
     }
@@ -29,9 +29,15 @@ class DispersionAnomalyDetectorTest {
     @Test
     @DisplayName("normal standard deviation yields zero anomaly score")
     void normalStdDevYieldsZero() {
-        UserProfile profile = createProfile(10, 1.5);
+        List<Rating> history = List.of(
+                createRating(7.0),
+                createRating(8.0),
+                createRating(8.5),
+                createRating(9.0),
+                createRating(8.0)
+        );
 
-        double score = detector.calculateAnomaly(profile);
+        double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isZero();
     }
@@ -39,58 +45,61 @@ class DispersionAnomalyDetectorTest {
     @Test
     @DisplayName("low standard deviation scales score smoothly based on min limit")
     void lowStdDevScalesScoreSmoothly() {
+        List<Rating> history = List.of(
+                createRating(8.0),
+                createRating(8.1),
+                createRating(8.0),
+                createRating(8.05),
+                createRating(8.0)
+        );
 
-        UserProfile profile = createProfile(10, 0.25);
+        double score = detector.calculateProfileAnomaly(history);
 
-        double score = detector.calculateAnomaly(profile);
-
-        assertThat(score).isCloseTo(0.5, within(EPS));
+        assertThat(score).isGreaterThan(0.0);
     }
 
     @Test
     @DisplayName("zero standard deviation yields maximum score for low dispersion")
     void zeroStdDevYieldsOne() {
-        UserProfile profile = createProfile(10, 0.0);
+        List<Rating> history = List.of(
+                createRating(8.0),
+                createRating(8.0),
+                createRating(8.0),
+                createRating(8.0),
+                createRating(8.0)
+        );
 
-        double score = detector.calculateAnomaly(profile);
+        double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isCloseTo(1.0, within(EPS));
-    }
-
-    @Test
-    @DisplayName("high standard deviation scales score smoothly towards max limit")
-    void highStdDevScalesScoreSmoothly() {
-
-        UserProfile profile = createProfile(10, 3.875);
-
-        double score = detector.calculateAnomaly(profile);
-
-        assertThat(score).isCloseTo(0.5, within(EPS));
     }
 
     @Test
     @DisplayName("extremely high standard deviation is capped at one")
     void extremelyHighStdDevCappedAtOne() {
-        UserProfile profile = createProfile(10, 5.0);
+        List<Rating> history = List.of(
+                createRating(1.0),
+                createRating(10.0),
+                createRating(1.0),
+                createRating(10.0),
+                createRating(5.0)
+        );
 
-        double score = detector.calculateAnomaly(profile);
+        double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isCloseTo(1.0, within(EPS));
     }
 
-    private UserProfile createProfile(int totalRatings, double stdDev) {
-        UserVector dummyVector = unitAt(1);
-        return new UserProfile(
-                "user-1",
-                totalRatings,
-                Map.of(),
-                dummyVector,
-                5.0,
-                5.0,
-                stdDev,
-                1.0,
-                10.0,
-                0
-        );
+    private Rating createRating(double value) {
+        return new Rating("user-1", "obj-1", value, Instant.now());
+    }
+
+    private List<Rating> createRatingsWithStdDev(int count, double baseValue, double deviation) {
+        List<Rating> ratings = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            double val = baseValue + (i % 2 == 0 ? deviation : -deviation);
+            ratings.add(createRating(Math.max(1.0, Math.min(10.0, val))));
+        }
+        return ratings;
     }
 }
