@@ -20,7 +20,9 @@ class TemporalAnomalyDetectorTest {
     @Test
     @DisplayName("rating count in window within normal limits returns zero")
     void withinNormalCountReturnsZero() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 5);
+        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
+                new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), 5, 20)
+        ));
         Rating current = rating("u1", "obj-1", 5.0, T0);
         List<Rating> history = ratingsInWindow("u1", T0, 3);
 
@@ -30,22 +32,32 @@ class TemporalAnomalyDetectorTest {
     }
 
     @Test
-    @DisplayName("excess ratings increase score according to tanh curve")
+    @DisplayName("excess ratings increase score according to logarithmic rule curve")
     void excessRatingsIncreaseScoreUpToOne() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
+        int maxNormal = 2;
+        int saturationCount = 10;
+        int count = 6;
+
+        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
+                new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), maxNormal, saturationCount)
+        ));
         Rating current = rating("u1", "obj-1", 5.0, T0);
-        List<Rating> history = ratingsInWindow("u1", T0, 6);
+        List<Rating> history = ratingsInWindow("u1", T0, count);
 
         double score = detector.calculateAnomaly(current, history);
 
-        double expectedScore = Math.tanh(0.1 * 4);
+        double expectedScore = Math.log((double) count / maxNormal)
+                / Math.log((double) saturationCount / maxNormal);
+
         assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 
     @Test
     @DisplayName("ratings outside time window are ignored")
     void ratingsOutsideWindowAreIgnored() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
+        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
+                new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), 2, 10)
+        ));
         Rating current = rating("u1", "obj-1", 5.0, T0);
         List<Rating> history = List.of(
                 rating("u1", "obj-1", 5.0, T0.minus(Duration.ofHours(5))),
@@ -60,7 +72,13 @@ class TemporalAnomalyDetectorTest {
     @Test
     @DisplayName("updatedAt takes precedence over timestamp when calculating effective time window")
     void updatedAtTakesPrecedenceInWindowCalculation() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
+        int maxNormal = 2;
+        int saturationCount = 10;
+        int count = 6;
+
+        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
+                new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), maxNormal, saturationCount)
+        ));
         Instant oldTime = T0.minus(Duration.ofDays(10));
 
         Rating current = new Rating("u1", "obj-1", 5.0, oldTime, T0);
@@ -75,14 +93,16 @@ class TemporalAnomalyDetectorTest {
 
         double score = detector.calculateAnomaly(current, history);
 
-        double expectedScore = Math.tanh(0.1 * 4);
+        double expectedScore = Math.log((double) count / maxNormal)
+                / Math.log((double) saturationCount / maxNormal);
+
         assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 
     @Test
     @DisplayName("calculateProfileAnomaly with empty or null history returns zero")
     void calculateProfileAnomalyWithNullOrEmptyYieldsZero() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 5);
+        TemporalAnomalyDetector detector = TemporalAnomalyDetector.withDefaults();
 
         assertThat(detector.calculateProfileAnomaly(null)).isZero();
         assertThat(detector.calculateProfileAnomaly(List.of())).isZero();
@@ -91,15 +111,23 @@ class TemporalAnomalyDetectorTest {
     @Test
     @DisplayName("calculateProfileAnomaly evaluates window around the latest effective rating in history")
     void calculateProfileAnomalyUsesLatestRatingInHistory() {
-        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(Duration.ofHours(1), 2);
+        int maxNormal = 2;
+        int saturationCount = 10;
+        int count = 6;
 
-        List<Rating> history = new ArrayList<>(ratingsInWindow("u1", T0, 6));
+        TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
+                new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), maxNormal, saturationCount)
+        ));
+
+        List<Rating> history = new ArrayList<>(ratingsInWindow("u1", T0, count));
         history.add(0, rating("u1", "obj-0", 5.0, T0.minus(Duration.ofDays(5))));
 
         Double score = detector.calculateProfileAnomaly(history);
 
         assertThat(score).isNotNull();
-        double expectedScore = Math.tanh(0.1 * 4);
+        double expectedScore = Math.log((double) count / maxNormal)
+                / Math.log((double) saturationCount / maxNormal);
+
         assertThat(score).isCloseTo(expectedScore, within(EPS));
     }
 

@@ -50,8 +50,9 @@ public class UserProfileBuilder {
             ratingCounts.put(i, 0);
         }
         for (double val : values) {
-            int roundedVal = Math.clamp(Math.round(val), 1, 10);
-            ratingCounts.put(roundedVal, ratingCounts.get(roundedVal) + 1);
+            int bucket = (int) Math.floor(val - 0.5) + 1;
+            int clampedBucket = Math.clamp(bucket, 1, 10);
+            ratingCounts.put(clampedBucket, ratingCounts.get(clampedBucket) + 1);
         }
         return ratingCounts;
     }

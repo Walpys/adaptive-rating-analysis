@@ -11,7 +11,6 @@ public record AnalysisResult(
         Double personalPercentile,
         String clusterId,
         Double personalAnomaly,
-        Double clusterAnomaly,
         Double temporalAnomaly,
         Double objectConsensusAnomaly,
         Double anomalyScore,
@@ -33,10 +32,6 @@ public record AnalysisResult(
 
     public Optional<Double> getPersonalAnomaly() {
         return Optional.ofNullable(personalAnomaly);
-    }
-
-    public Optional<Double> getClusterAnomaly() {
-        return Optional.ofNullable(clusterAnomaly);
     }
 
     public Optional<Double> getTemporalAnomaly() {

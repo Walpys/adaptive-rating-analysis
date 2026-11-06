@@ -2,59 +2,169 @@ package com.adaptiveRating.anomaly;
 
 import com.adaptiveRating.model.Rating;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 public class ObjectConsensusAnomalyDetector {
+    private static final int MIN_OTHER_RATINGS = 5;
+    private static final double MIN_STD_DEV = 1.0;
+    private static final double Z_SCORE_THRESHOLD = 2.0;
 
-    public double calculateAnomaly(Rating currentRating, List<Rating> objectRatingsInCluster) {
-        if (objectRatingsInCluster == null || objectRatingsInCluster.isEmpty()) {
+    /**
+     * Кеш-рекорд для зберігання попередньо порахованих середнього та стандартного відхилення об'єкта.
+     * Дозволяє уникнути повторного проходу циклами.
+     */
+    public record ObjectStats(double mean, double std, int count) {
+        public static ObjectStats fromRatings(List<Rating> ratings, String excludeUserId) {
+            if (ratings == null || ratings.isEmpty()) {
+                return null;
+            }
+            double sum = 0.0;
+            double ss = 0.0;
+            int n = 0;
+
+            for (Rating r : ratings) {
+                if (excludeUserId != null && r.userId().equals(excludeUserId)) {
+                    continue;
+                }
+                double val = r.rating();
+                sum += val;
+                ss += val * val;
+                n++;
+            }
+
+            if (n < MIN_OTHER_RATINGS) {
+                return null;
+            }
+
+            double meanVal = sum / n;
+            // Формула дисперсії через суму квадратів: E[X^2] - (E[X])^2 або пряма сума різниць.
+            // Для точності використаємо класичну суму (val - mean), але за один прохід через збережені дані
+            // або стандартний двопрохідний метод, оптимізований в один блок.
+            return calculateStatsOptimized(ratings, excludeUserId, meanVal, n);
+        }
+
+        private static ObjectStats calculateStatsOptimized(List<Rating> ratings, String excludeUserId, double mean, int n) {
+            double ss = 0.0;
+            for (Rating r : ratings) {
+                if (excludeUserId != null && r.userId().equals(excludeUserId)) {
+                    continue;
+                }
+                double diff = r.rating() - mean;
+                ss += diff * diff;
+            }
+            double stdVal = Math.max(Math.sqrt(ss / (n - 1)), MIN_STD_DEV);
+            return new ObjectStats(mean, stdVal, n);
+        }
+    }
+
+    /**
+     * Швидкий розрахунок з використанням попередньо згенерованої статистики (кешу).
+     */
+    public double calculateAnomalyWithStats(Rating current, ObjectStats stats) {
+        if (stats == null || stats.count() < MIN_OTHER_RATINGS) {
             return 0.0;
         }
 
-        // 1. Збираємо суму та рахуємо кількість (виключаючи поточну оцінку)
-        double sum = 0.0;
+        double z = Math.abs(current.rating() - stats.mean()) / stats.std();
+        return Math.min(1.0, Math.max(0.0, (z - 1.0) / 2.0));
+    }
+
+    public double calculateAnomaly(Rating current, List<Rating> objectRatingsInCluster, List<Rating> globalObjectRatings) {
+        List<Rating> ratingsToUse = objectRatingsInCluster;
+        int otherCountInCluster = countOtherRatings(current, objectRatingsInCluster);
+
+        if (otherCountInCluster < MIN_OTHER_RATINGS && globalObjectRatings != null && !globalObjectRatings.isEmpty()) {
+            ratingsToUse = globalObjectRatings;
+        }
+
+        if (ratingsToUse == null) return 0.0;
+
+        ObjectStats stats = ObjectStats.fromRatings(ratingsToUse, current.userId());
+        return calculateAnomalyWithStats(current, stats);
+    }
+
+    public double calculateAnomaly(Rating current, List<Rating> objectRatingsInCluster) {
+        return calculateAnomaly(current, objectRatingsInCluster, null);
+    }
+
+    /**
+     * Покращений метод для профілю з підтримкою передачі глобального кешу статистик.
+     */
+    public double calculateProfileAnomalyWithCache(
+            List<Rating> userHistory,
+            Function<String, List<Rating>> clusterRatingsProvider,
+            Function<String, List<Rating>> globalRatingsProvider,
+            Map<String, ObjectStats> globalStatsCache
+    ) {
+        if (userHistory == null || userHistory.isEmpty()) {
+            return 0.0;
+        }
+
+        int evaluatedCount = 0;
+        int anomalousCount = 0;
+        double maxZScoreSignal = 0.0;
+
+        for (Rating rating : userHistory) {
+            String objId = rating.objectId();
+            ObjectStats stats = null;
+
+            // 1. Спробуємо взяти з кластера або з готового кешу
+            List<Rating> clusterRatings = clusterRatingsProvider != null ? clusterRatingsProvider.apply(objId) : null;
+            int otherInCluster = countOtherRatings(rating, clusterRatings);
+
+            if (otherInCluster >= MIN_OTHER_RATINGS && clusterRatings != null) {
+                stats = ObjectStats.fromRatings(clusterRatings, rating.userId());
+            } else {
+                // 2. Використовуємо глобальний кеш, якщо він є, або вираховуємо
+                if (globalStatsCache != null && globalStatsCache.containsKey(objId)) {
+                    stats = globalStatsCache.get(objId);
+                } else {
+                    List<Rating> globalRatings = globalRatingsProvider != null ? globalRatingsProvider.apply(objId) : null;
+                    stats = ObjectStats.fromRatings(globalRatings, rating.userId());
+                }
+            }
+
+            if (stats != null) {
+                evaluatedCount++;
+                double score = calculateAnomalyWithStats(rating, stats);
+                double estimatedZ = score * 2.0 + 1.0;
+
+                if (estimatedZ >= Z_SCORE_THRESHOLD) {
+                    anomalousCount++;
+                }
+                maxZScoreSignal = Math.max(maxZScoreSignal, score);
+            }
+        }
+
+        if (evaluatedCount == 0) {
+            return 0.0;
+        }
+
+        double anomalyRatio = (double) anomalousCount / evaluatedCount;
+        double profileConsensusScore = (0.7 * anomalyRatio) + (0.3 * maxZScoreSignal);
+
+        return Math.max(0.0, Math.min(1.0, profileConsensusScore));
+    }
+
+    public double calculateProfileAnomaly(
+            List<Rating> userHistory,
+            Function<String, List<Rating>> clusterRatingsProvider,
+            Function<String, List<Rating>> globalRatingsProvider
+    ) {
+        return calculateProfileAnomalyWithCache(userHistory, clusterRatingsProvider, globalRatingsProvider, null);
+    }
+
+    private int countOtherRatings(Rating current, List<Rating> ratings) {
+        if (ratings == null) return 0;
         int count = 0;
-
-        for (Rating r : objectRatingsInCluster) {
-            if (r.equals(currentRating)) {
-                continue;
+        for (Rating r : ratings) {
+            if (!r.userId().equals(current.userId())) {
+                count++;
             }
-            sum += r.rating();
-            count++;
         }
-
-        // Якщо в кластері немає інших оцінок для порівняння — аномалію виявити неможливо
-        if (count == 0) {
-            return 0.0;
-        }
-
-        // 2. Рахуємо середнє значення об'єкта (leave-one-out mean)
-        double clusterObjectMean = sum / count;
-
-        // 3. Рахуємо дисперсію та стандартне відхилення об'єкта у кластері (також leave-one-out)
-        double sumSquaredDiff = 0.0;
-        for (Rating r : objectRatingsInCluster) {
-            if (r.equals(currentRating)) {
-                continue;
-            }
-            double diffFromMean = r.rating() - clusterObjectMean;
-            sumSquaredDiff += diffFromMean * diffFromMean;
-        }
-
-        double stdDev = Math.sqrt(sumSquaredDiff / count);
-
-        // Якщо дисперсія 0 (усі інші користувачі поставили абсолютно однаковий бал):
-        if (stdDev == 0.0) {
-            return currentRating.rating() == clusterObjectMean ? 0.0 : 1.0;
-        }
-
-        // 4. Розрахунок z-score відносно реального розкиду оцінок об'єкта
-        double diff = Math.abs(currentRating.rating() - clusterObjectMean);
-        double zScore = diff / stdDev;
-
-        // 5. Нормалізація в діапазон [0.0, 1.0] за правилом 3 сигм
-        double anomalyScore = Math.min(1.0, zScore / 3.0);
-
-        return Math.max(0.0, Math.min(1.0, anomalyScore));
+        return count;
     }
 }

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.List;
 
 import static com.adaptiveRating.TestFixtures.EPS;
@@ -36,7 +37,13 @@ class AdaptiveRatingAnalyzerApiTest {
                 new PersonalAnomalyDetector(),
                 new ClusterAnomalyDetector(),
                 new ObjectConsensusAnomalyDetector(),
-                new TemporalAnomalyDetector(cfg.getTemporalWindow(), cfg.getMaxTemporalCountInWindow()),
+                new TemporalAnomalyDetector(List.of(
+                        new TemporalAnomalyDetector.WindowRule(
+                                cfg.getTemporalWindow() != null ? cfg.getTemporalWindow() : Duration.ofHours(1),
+                                cfg.getMaxTemporalCountInWindow(),
+                                cfg.getMaxTemporalCountInWindow() + 15
+                        )
+                )),
                 new AnomalyScoreCalculator(
                         cfg.getWeightPersonal(),
                         cfg.getWeightCluster(),

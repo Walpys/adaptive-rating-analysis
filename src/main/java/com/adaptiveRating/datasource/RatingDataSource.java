@@ -5,6 +5,7 @@ import com.adaptiveRating.model.UserProfile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface RatingDataSource {
 
@@ -14,7 +15,11 @@ public interface RatingDataSource {
 
     List<Rating> getObjectRatings(String objectId);
 
+    Set<String> getAllObjectIds();
+
     UserProfile getUserProfile(String userId);
 
     Map<String, List<Rating>> getUserRatingsBatch(List<String> userIds);
+
+    List<Rating> getObjectRatingsInCluster(String objectId, Integer clusterIndex);
 }

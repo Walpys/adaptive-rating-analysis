@@ -2,6 +2,7 @@ package com.adaptiveRating.model;
 
 import com.adaptiveRating.exception.rating.RatingValidationException;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,7 +25,7 @@ public record Rating(
         if (objectId.isBlank()) {
             throw new RatingValidationException("objectId must not be blank");
         }
-        if (rating < 1.0 || rating > 10.0) {
+        if (Double.isNaN(rating) || rating < 1.0 || rating > 10.0) {
             throw new RatingValidationException("Rating value must be between 1.0 and 10.0, got: " + rating);
         }
     }
@@ -38,6 +39,13 @@ public record Rating(
     }
 
     public Instant getEffectiveTime() {
-        return updatedAt != null ? updatedAt : timestamp;
+        return isInitialCreation() ? (updatedAt != null ? updatedAt : timestamp) : timestamp;
+    }
+
+    public boolean isInitialCreation() {
+        if (updatedAt == null) {
+            return true;
+        }
+        return Duration.between(timestamp, updatedAt).abs().compareTo(Duration.ofSeconds(5)) <= 0;
     }
 }

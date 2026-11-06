@@ -15,6 +15,7 @@ public record ProfileAnalysisResult(
         Double clusterAnomaly,
         Double dispersionAnomaly,
         Double temporalAnomaly,
+        Double objectConsensusAnomaly,
         Double overallAnomalyScore,
         AnalysisStatus status,
         ResultClassification classification

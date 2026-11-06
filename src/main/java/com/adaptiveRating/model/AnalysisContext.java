@@ -7,7 +7,8 @@ public record AnalysisContext(
         List<Rating> userHistory,
         UserProfile profile,
         ClusterModel clusterModel,
-        List<Rating> objectRatingsInCluster
+        List<Rating> objectRatingsInCluster,
+        List<Rating> objectRatings
 ) {
     public AnalysisContext {
         userHistory = userHistory != null ? List.copyOf(userHistory) : List.of();

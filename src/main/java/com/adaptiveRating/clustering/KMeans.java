@@ -28,12 +28,15 @@ public class KMeans {
         int actualK = Math.min(k, vectors.size());
         Random random = new Random(seed);
 
-        List<UserVector> centers = initializeCenters(vectors, actualK, random);
+        // 1. Використовуємо стійку K-Means++ ініціалізацію замість сліпого shuffle
+        List<UserVector> centers = initializeCentersKMeansPlusPlus(vectors, actualK, random);
         List<Integer> assignments = new ArrayList<>(Collections.nCopies(vectors.size(), -1));
+
+        List<List<UserVector>> clusters = new ArrayList<>();
 
         for (int iter = 0; iter < maxIterations; iter++) {
             boolean changed = false;
-            List<List<UserVector>> clusters = new ArrayList<>();
+            clusters.clear();
             for (int i = 0; i < actualK; i++) {
                 clusters.add(new ArrayList<>());
             }
@@ -65,7 +68,27 @@ public class KMeans {
             centers = newCenters;
         }
 
-        return new ClusterModel(actualK, centers, System.currentTimeMillis());
+        // 2. Фінальний чистий прохід: перерозподіляємо всі вектори за остаточними центрами,
+        // щоб розміри та радіуси відповідали актуальному стану, а не проміжному перед зсувом.
+        List<List<UserVector>> finalClusters = new ArrayList<>();
+        for (int i = 0; i < actualK; i++) {
+            finalClusters.add(new ArrayList<>());
+        }
+        for (UserVector vector : vectors) {
+            int nearestCenter = findNearestCenterIndex(vector, centers);
+            finalClusters.get(nearestCenter).add(vector);
+        }
+
+        List<Integer> clusterSizes = new ArrayList<>(actualK);
+        List<Double> clusterRadii = new ArrayList<>(actualK);
+
+        for (int i = 0; i < actualK; i++) {
+            List<UserVector> clusterVectors = finalClusters.get(i);
+            clusterSizes.add(clusterVectors.size());
+            clusterRadii.add(calculateP95Radius(clusterVectors, centers.get(i)));
+        }
+
+        return new ClusterModel(actualK, centers, clusterSizes, System.currentTimeMillis(), clusterRadii);
     }
 
     public static int findClosestCluster(UserVector userVector, ClusterModel clusterModel) {
@@ -93,6 +116,25 @@ public class KMeans {
         return nearestIndex;
     }
 
+    private double calculateP95Radius(List<UserVector> clusterVectors, UserVector center) {
+        if (clusterVectors == null || clusterVectors.isEmpty()) {
+            return 0.5;
+        }
+
+        List<Double> distances = new ArrayList<>(clusterVectors.size());
+        for (UserVector v : clusterVectors) {
+            distances.add(calculateEuclideanDistanceStatic(v, center));
+        }
+
+        Collections.sort(distances);
+
+        int p95Index = (int) Math.ceil(distances.size() * 0.95) - 1;
+        p95Index = Math.max(0, Math.min(p95Index, distances.size() - 1));
+
+        double radius = distances.get(p95Index);
+        return Math.max(radius, 0.1);
+    }
+
     private static double calculateEuclideanDistanceStatic(UserVector v1, UserVector v2) {
         double[] c1 = v1.components();
         double[] c2 = v2.components();
@@ -104,14 +146,48 @@ public class KMeans {
         return Math.sqrt(sum);
     }
 
-    private List<UserVector> initializeCenters(List<UserVector> vectors, int actualK, Random random) {
+    /**
+     * K-Means++ ініціалізація центрів для захисту від викидів.
+     */
+    private List<UserVector> initializeCentersKMeansPlusPlus(List<UserVector> vectors, int actualK, Random random) {
         List<UserVector> centers = new ArrayList<>();
-        List<UserVector> shuffled = new ArrayList<>(vectors);
-        Collections.shuffle(shuffled, random);
 
-        for (int i = 0; i < actualK; i++) {
-            centers.add(shuffled.get(i));
+        // 1. Перший центр обираємо випадково
+        centers.add(vectors.get(random.nextInt(vectors.size())));
+
+        // 2. Наступні центри обираємо з імовірністю, пропорційною квадрату найменшої відстані до вже вибраних
+        for (int i = 1; i < actualK; i++) {
+            double[] squaredDistances = new double[vectors.size()];
+            double totalSquaredDistSum = 0.0;
+
+            for (int j = 0; j < vectors.size(); j++) {
+                UserVector v = vectors.get(j);
+                double minSqDist = Double.MAX_VALUE;
+
+                for (UserVector center : centers) {
+                    double dist = calculateEuclideanDistanceStatic(v, center);
+                    minSqDist = Math.min(minSqDist, dist * dist);
+                }
+
+                squaredDistances[j] = minSqDist;
+                totalSquaredDistSum += minSqDist;
+            }
+
+            // Рулетка вибору нового центру
+            double target = random.nextDouble() * totalSquaredDistSum;
+            double currentSum = 0.0;
+            UserVector chosenCenter = vectors.get(vectors.size() - 1); // fallback
+
+            for (int j = 0; j < vectors.size(); j++) {
+                currentSum += squaredDistances[j];
+                if (currentSum >= target) {
+                    chosenCenter = vectors.get(j);
+                    break;
+                }
+            }
+            centers.add(chosenCenter);
         }
+
         return centers;
     }
 
