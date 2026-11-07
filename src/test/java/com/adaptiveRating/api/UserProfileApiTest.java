@@ -112,7 +112,7 @@ class UserProfileApiTest {
                     rating("u1", "obj-1", 5.0),
                     rating("u1", "obj-2", 5.0),
                     rating("u1", "obj-3", 5.0),
-                    rating("u2", "obj-1", 8.0) // only 1 rating, below minRatings=3
+                    rating("u2", "obj-1", 8.0)
             );
             InMemoryRatingDataSource dataSource = new InMemoryRatingDataSource(allRatings);
             UserProfileApi api = new UserProfileApi(config, dataSource, profileBuilder);
@@ -147,7 +147,7 @@ class UserProfileApiTest {
             UserProfileApi api = new UserProfileApi(config, dataSource, profileBuilder);
 
             UserVector center = unitAt(5);
-            ClusterModel clusterModel = new ClusterModel(1, List.of(center), 1L);
+            ClusterModel clusterModel = new ClusterModel(1, List.of(center), List.of(0), 1L, List.of(5.0));
 
             UserProfile profile = api.buildProfileWithCluster("u1", clusterModel);
 
@@ -164,7 +164,7 @@ class UserProfileApiTest {
 
             UserProfile profile = profileBuilder.build("u1", ratings);
             UserVector center = unitAt(5);
-            ClusterModel clusterModel = new ClusterModel(1, List.of(center), 1L);
+            ClusterModel clusterModel = new ClusterModel(1, List.of(center), List.of(0), 1L, List.of(5.0));
 
             UserProfile updated = api.updateClusterAssignment(profile, clusterModel);
 
@@ -183,7 +183,7 @@ class UserProfileApiTest {
             UserProfile p2 = profileBuilder.build("u2", ratings2);
 
             UserVector center = unitAt(5);
-            ClusterModel clusterModel = new ClusterModel(1, List.of(center), 1L);
+            ClusterModel clusterModel = new ClusterModel(1, List.of(center), List.of(0), 1L, List.of(5.0));
 
             api.updateClustersBatch(List.of(p1, p2), clusterModel);
 

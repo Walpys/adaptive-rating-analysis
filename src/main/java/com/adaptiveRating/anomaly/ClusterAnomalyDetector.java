@@ -58,8 +58,14 @@ public class ClusterAnomalyDetector {
         }
 
         // Нормалізація відносно p95
-        double normalizedScore = distance / dynamicMaxDistance;
-        return Math.max(0.0, Math.min(1.0, normalizedScore));
+        double ratio = distance / dynamicMaxDistance;
+
+        double normalizedScore = Math.max(
+                0.0,
+                (ratio - 0.5) / 1.5
+        );
+
+        return Math.min(1.0, normalizedScore);
     }
 
     private double getClusterP95Radius(int clusterIdx, ClusterModel clusterModel) {

@@ -74,7 +74,8 @@ class TemporalAnomalyDetectorTest {
     void updatedAtTakesPrecedenceInWindowCalculation() {
         int maxNormal = 2;
         int saturationCount = 10;
-        int count = 6;
+
+        double effectiveWeightSum = 3.0;
 
         TemporalAnomalyDetector detector = new TemporalAnomalyDetector(List.of(
                 new TemporalAnomalyDetector.WindowRule(Duration.ofHours(1), maxNormal, saturationCount)
@@ -93,7 +94,7 @@ class TemporalAnomalyDetectorTest {
 
         double score = detector.calculateAnomaly(current, history);
 
-        double expectedScore = Math.log((double) count / maxNormal)
+        double expectedScore = Math.log(effectiveWeightSum / maxNormal)
                 / Math.log((double) saturationCount / maxNormal);
 
         assertThat(score).isCloseTo(expectedScore, within(EPS));

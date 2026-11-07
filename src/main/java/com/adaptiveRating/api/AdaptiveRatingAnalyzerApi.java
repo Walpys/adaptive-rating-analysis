@@ -11,12 +11,9 @@ import com.adaptiveRating.percentile.PercentileCalculator;
 import com.adaptiveRating.validation.RatingValidator;
 import lombok.RequiredArgsConstructor;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
-@RequiredArgsConstructor
 public class AdaptiveRatingAnalyzerApi {
 
     private final AnalyzerConfig config;
@@ -28,6 +25,62 @@ public class AdaptiveRatingAnalyzerApi {
     private final AnomalyScoreCalculator anomalyScoreCalculator;
     private final PercentileCalculator percentileCalculator;
     private final DispersionAnomalyDetector dispersionAnomalyDetector;
+    private final ConsensusIndex consensusIndex;
+
+    /**
+     * Повний конструктор (якщо індекс побудовано ззовні).
+     */
+    public AdaptiveRatingAnalyzerApi(
+            AnalyzerConfig config,
+            RatingDataSource dataSource,
+            PersonalAnomalyDetector personalDetector,
+            ClusterAnomalyDetector clusterDetector,
+            ObjectConsensusAnomalyDetector objectConsensusAnomalyDetector,
+            TemporalAnomalyDetector temporalAnomalyDetector,
+            AnomalyScoreCalculator anomalyScoreCalculator,
+            PercentileCalculator percentileCalculator,
+            DispersionAnomalyDetector dispersionAnomalyDetector,
+            ConsensusIndex consensusIndex
+    ) {
+        this.config = config;
+        this.dataSource = dataSource;
+        this.personalDetector = personalDetector;
+        this.clusterDetector = clusterDetector;
+        this.objectConsensusAnomalyDetector = objectConsensusAnomalyDetector;
+        this.temporalAnomalyDetector = temporalAnomalyDetector;
+        this.anomalyScoreCalculator = anomalyScoreCalculator;
+        this.percentileCalculator = percentileCalculator;
+        this.dispersionAnomalyDetector = dispersionAnomalyDetector;
+        this.consensusIndex = consensusIndex;
+    }
+
+    /**
+     * Зручний конструктор: приймає кількість кластерів (k) і САМ будує ConsensusIndex усередині!
+     */
+    public AdaptiveRatingAnalyzerApi(
+            AnalyzerConfig config,
+            RatingDataSource dataSource,
+            PersonalAnomalyDetector personalDetector,
+            ClusterAnomalyDetector clusterDetector,
+            ObjectConsensusAnomalyDetector objectConsensusAnomalyDetector,
+            TemporalAnomalyDetector temporalAnomalyDetector,
+            AnomalyScoreCalculator anomalyScoreCalculator,
+            PercentileCalculator percentileCalculator,
+            DispersionAnomalyDetector dispersionAnomalyDetector,
+            int clusterCount
+    ) {
+        this.config = config;
+        this.dataSource = dataSource;
+        this.personalDetector = personalDetector;
+        this.clusterDetector = clusterDetector;
+        this.objectConsensusAnomalyDetector = objectConsensusAnomalyDetector;
+        this.temporalAnomalyDetector = temporalAnomalyDetector;
+        this.anomalyScoreCalculator = anomalyScoreCalculator;
+        this.percentileCalculator = percentileCalculator;
+        this.dispersionAnomalyDetector = dispersionAnomalyDetector;
+        // Автоматична побудова індексу самою лібою
+        this.consensusIndex = ConsensusIndex.build(dataSource, clusterCount);
+    }
 
     public AnalysisResult analyze(String userId, Rating rating, ClusterModel clusterModel) {
         UserProfile profile = dataSource.getUserProfile(userId);
@@ -55,21 +108,9 @@ public class AdaptiveRatingAnalyzerApi {
     }
 
     /**
-     * Оптимізований метод для масового/великого датасету.
-     * Автоматично створює глобальний кеш статистик об'єктів (або приймає його готовим),
-     * щоб уникнути мільйонів повторних перерахунків mean та std у циклах.
+     * Швидкий масовий аналіз профілю з використанням ConsensusIndex O(1).
      */
     public ProfileAnalysisResult analyzeProfileForLargeData(String userId, ClusterModel clusterModel) {
-        // Генеруємо кеш «на льоту» для конкретного виклику (або можна передати спільний мапом вище)
-        Map<String, ObjectConsensusAnomalyDetector.ObjectStats> globalCache = buildGlobalStatsCache();
-        return analyzeProfileWithCache(userId, clusterModel, globalCache);
-    }
-
-    public ProfileAnalysisResult analyzeProfileWithCache(
-            String userId,
-            ClusterModel clusterModel,
-            Map<String, ObjectConsensusAnomalyDetector.ObjectStats> globalStatsCache
-    ) {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(clusterModel, "ClusterModel must not be null");
 
@@ -85,13 +126,8 @@ public class AdaptiveRatingAnalyzerApi {
         Double dispersionAnomaly = dispersionAnomalyDetector.calculateAnomaly(profile);
         Double temporalAnomaly = temporalAnomalyDetector.calculateProfileAnomaly(userRatings);
 
-        // Використовуємо оптимізований метод з кешем об'єктів
-        Double objectConsensusAnomaly = objectConsensusAnomalyDetector.calculateProfileAnomalyWithCache(
-                userRatings,
-                objectId -> profile.getClusterIndex() != null ? dataSource.getObjectRatingsInCluster(objectId, profile.getClusterIndex()) : null,
-                dataSource::getObjectRatings,
-                globalStatsCache
-        );
+        // Використовуємо надшвидкий консенсус за O(1)
+        Double objectConsensusAnomaly = consensusIndex.profileConsensus(userRatings, profile.getClusterIndex());
 
         double overallScore = anomalyScoreCalculator.calculateProfileScore(
                 dispersionAnomaly,
@@ -129,90 +165,10 @@ public class AdaptiveRatingAnalyzerApi {
     }
 
     /**
-     * Допоміжний метод для попереднього збору статистик по всіх унікальних об'єктах у джерелі даних.
+     * Делегуємо звичайний метод аналізу профілю на оптимізовану версію.
      */
-    public Map<String, ObjectConsensusAnomalyDetector.ObjectStats> buildGlobalStatsCache() {
-        Map<String, ObjectConsensusAnomalyDetector.ObjectStats> cache = new HashMap<>();
-        // Отримуємо всі унікальні об'єкти з dataSource (якщо твій datasource підтримує це,
-        // або мапа будується динамічно за потребою)
-        for (String objectId : dataSource.getAllObjectIds()) {
-            List<Rating> ratings = dataSource.getObjectRatings(objectId);
-            if (ratings != null && !ratings.isEmpty()) {
-                // null як excludeUserId, оскільки це загальна глобальна статистика об'єкта
-                ObjectConsensusAnomalyDetector.ObjectStats stats =
-                        ObjectConsensusAnomalyDetector.ObjectStats.fromRatings(ratings, null);
-                if (stats != null) {
-                    cache.put(objectId, stats);
-                }
-            }
-        }
-        return cache;
-    }
-
-    /**
-     * Оптимізований метод для великих даних, який приймає вже готовий глобальний кеш.
-     */
-    public ProfileAnalysisResult analyzeProfileForLargeData(
-            String userId,
-            ClusterModel clusterModel,
-            Map<String, ObjectConsensusAnomalyDetector.ObjectStats> globalCache
-    ) {
-        Objects.requireNonNull(userId, "userId must not be null");
-        Objects.requireNonNull(clusterModel, "ClusterModel must not be null");
-
-        UserProfile profile = dataSource.getUserProfile(userId);
-        Objects.requireNonNull(profile, "UserProfile must exist in data source!");
-
-        Double clusterAnomaly = null;
-        if (profile.getClusterIndex() != null) {
-            clusterAnomaly = clusterDetector.calculateAnomaly(profile, clusterModel);
-        }
-
-        List<Rating> userRatings = dataSource.getUserRatings(userId);
-        Double dispersionAnomaly = dispersionAnomalyDetector.calculateAnomaly(profile);
-        Double temporalAnomaly = temporalAnomalyDetector.calculateProfileAnomaly(userRatings);
-
-        // Використовуємо кеш
-        Double objectConsensusAnomaly = objectConsensusAnomalyDetector.calculateProfileAnomalyWithCache(
-                userRatings,
-                objectId -> profile.getClusterIndex() != null ? dataSource.getObjectRatingsInCluster(objectId, profile.getClusterIndex()) : null,
-                dataSource::getObjectRatings,
-                globalCache
-        );
-
-        double overallScore = anomalyScoreCalculator.calculateProfileScore(
-                dispersionAnomaly,
-                clusterAnomaly,
-                temporalAnomaly,
-                objectConsensusAnomaly
-        );
-
-        String clusterId = "N/A";
-        if (profile.getClusterIndex() != null) {
-            clusterId = String.valueOf(profile.getClusterIndex());
-        } else if (profile.getUserVector() != null) {
-            int userClusterIndex = KMeans.findClosestCluster(profile.getUserVector(), clusterModel);
-            clusterId = String.valueOf(userClusterIndex);
-        }
-
-        ResultClassification classification = overallScore >= config.getAnomalyThreshold()
-                ? ResultClassification.ANOMALOUS
-                : ResultClassification.NORMAL;
-
-        return new ProfileAnalysisResult(
-                profile.getUserId(),
-                profile.getTotalRatings(),
-                profile.getMean(),
-                profile.getStandardDeviation(),
-                clusterId,
-                clusterAnomaly,
-                dispersionAnomaly,
-                temporalAnomaly,
-                objectConsensusAnomaly,
-                overallScore,
-                AnalysisStatus.COMPLETE,
-                classification
-        );
+    public ProfileAnalysisResult analyzeProfile(String userId, ClusterModel clusterModel) {
+        return analyzeProfileForLargeData(userId, clusterModel);
     }
 
     public AnalysisResult analyze(AnalysisContext context) {
@@ -255,11 +211,6 @@ public class AdaptiveRatingAnalyzerApi {
                 resolution.status(),
                 resolution.classification()
         );
-    }
-
-    public ProfileAnalysisResult analyzeProfile(String userId, ClusterModel clusterModel) {
-        // Для звичайного використання можна напряму спрямувати на великий датасет з кешем
-        return analyzeProfileForLargeData(userId, clusterModel);
     }
 
     private AnalysisResolution determineResolution(double anomalyScore) {

@@ -13,6 +13,7 @@ public record AnalysisContext(
     public AnalysisContext {
         userHistory = userHistory != null ? List.copyOf(userHistory) : List.of();
         objectRatingsInCluster = objectRatingsInCluster != null ? List.copyOf(objectRatingsInCluster) : List.of();
+        objectRatings = objectRatings != null ? List.copyOf(objectRatings) : List.of();
         profile = profile != null ? new UserProfile(profile) : null;
     }
 
@@ -24,6 +25,11 @@ public record AnalysisContext(
     @Override
     public List<Rating> objectRatingsInCluster() {
         return List.copyOf(objectRatingsInCluster);
+    }
+
+    @Override
+    public List<Rating> objectRatings() {
+        return List.copyOf(objectRatings);
     }
 
     @Override

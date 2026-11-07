@@ -111,8 +111,8 @@ class KMeansTest {
     @DisplayName("findClosestCluster returns minus one for invalid inputs")
     void findClosestClusterReturnsMinusOneForInvalidInputs() {
         UserVector vector = unitAt(1);
-        ClusterModel validModel = new ClusterModel(1, List.of(vector), 0L);
-        ClusterModel emptyModel = new ClusterModel(0, List.of(), 0L);
+        ClusterModel validModel = new ClusterModel(1, List.of(vector), List.of(1), 0L, List.of(1.0));
+        ClusterModel emptyModel = new ClusterModel(0, List.of(), List.of(), 0L, List.of());
 
         assertThat(KMeans.findClosestCluster(null, validModel)).isEqualTo(-1);
         assertThat(KMeans.findClosestCluster(vector, null)).isEqualTo(-1);

@@ -8,23 +8,21 @@ import java.util.stream.Collectors;
 
 public class InMemoryRatingDataSource implements RatingDataSource {
 
-    private final List<Rating> ratings;
     private final Map<String, UserProfile> profiles = new HashMap<>();
 
-    // Індекси для миттєвого пошуку O(1)
+    // Індекси для миттєвого пошуку O(1) — вони є єдиним джерелом правди для оцінок
     private final Map<String, List<Rating>> userRatingsMap;
     private final Map<String, List<Rating>> objectRatingsMap;
 
     public InMemoryRatingDataSource(List<Rating> initialRatings) {
-        this.ratings = initialRatings != null ? new ArrayList<>(initialRatings) : new ArrayList<>();
-
-        // Будуємо індекси один раз при ініціалізації
         this.userRatingsMap = new HashMap<>();
         this.objectRatingsMap = new HashMap<>();
 
-        for (Rating rating : this.ratings) {
-            userRatingsMap.computeIfAbsent(rating.userId(), k -> new ArrayList<>()).add(rating);
-            objectRatingsMap.computeIfAbsent(rating.objectId(), k -> new ArrayList<>()).add(rating);
+        if (initialRatings != null) {
+            for (Rating rating : initialRatings) {
+                userRatingsMap.computeIfAbsent(rating.userId(), k -> new ArrayList<>()).add(rating);
+                objectRatingsMap.computeIfAbsent(rating.objectId(), k -> new ArrayList<>()).add(rating);
+            }
         }
     }
 
@@ -53,7 +51,10 @@ public class InMemoryRatingDataSource implements RatingDataSource {
 
     @Override
     public List<Rating> getAllRatings() {
-        return new ArrayList<>(ratings);
+        // Збираємо всі оцінки з мапи об'єктів без дублюючого окремого списку
+        return objectRatingsMap.values().stream()
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -64,7 +65,6 @@ public class InMemoryRatingDataSource implements RatingDataSource {
 
     @Override
     public Set<String> getAllObjectIds() {
-        // Миттєве повернення ключів готового індексу без зайвих проходів
         return objectRatingsMap.keySet();
     }
 
@@ -78,16 +78,18 @@ public class InMemoryRatingDataSource implements RatingDataSource {
     public Map<String, List<Rating>> getUserRatingsBatch(List<String> userIds) {
         Objects.requireNonNull(userIds, "userIds must not be null");
 
-        Set<String> userIdSet = new HashSet<>(userIds);
-
-        return ratings.stream()
-                .filter(r -> userIdSet.contains(r.userId()))
-                .collect(Collectors.groupingBy(Rating::userId));
+        Map<String, List<Rating>> result = new HashMap<>();
+        for (String userId : userIds) {
+            List<Rating> ratings = userRatingsMap.get(userId);
+            if (ratings != null) {
+                result.put(userId, ratings);
+            }
+        }
+        return result;
     }
 
     public void addRating(Rating rating) {
         Objects.requireNonNull(rating, "rating must not be null");
-        ratings.add(rating);
         userRatingsMap.computeIfAbsent(rating.userId(), k -> new ArrayList<>()).add(rating);
         objectRatingsMap.computeIfAbsent(rating.objectId(), k -> new ArrayList<>()).add(rating);
     }
