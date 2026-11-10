@@ -5,6 +5,7 @@ target/
 .kotlin
 .idea/
 .idea
+AGENTS.md
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
