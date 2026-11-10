@@ -7,7 +7,7 @@
 
     <groupId>io.github.walpys</groupId>
     <artifactId>adaptive-rating-analysis-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>Adaptive Rating Analysis (Parent)</name>
