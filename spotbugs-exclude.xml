@@ -1,0 +1,9 @@
+<FindBugsFilter>
+    <Match>
+        <Package name="io.github.walpys.adaptiverating.benchmark.jmh_generated" />
+    </Match>
+    <Match>
+        <Class name="io.github.walpys.adaptiverating.datasource.InMemoryRatingDataSource"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+</FindBugsFilter>
